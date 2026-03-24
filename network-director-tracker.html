@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network — Director Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111111; --surface2: #181818; --border: #222222;
+    --accent: #e8ff47; --accent2: #ff6b35; --text: #f0f0f0;
+    --muted: #555; --muted2: #888; --danger: #ff4444; --success: #44ff88;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(232,255,71,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+  .app { position:relative; z-index:1; max-width:960px; margin:0 auto; padding:40px 24px 80px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:48px; padding-bottom:24px; border-bottom:1px solid var(--border); }
+  .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted2); }
+  .logo span { color:var(--accent); }
+  .status-pill { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted2); border:1px solid var(--border); padding:6px 12px; border-radius:2px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(30px,5vw,50px); line-height:1; margin-bottom:6px; letter-spacing:-0.02em; }
+  .page-title .hl { color:var(--accent); }
+  .page-sub { font-size:11px; color:var(--muted2); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px; }
+  .context-note { font-size:11px; color:var(--muted); border-left:2px solid var(--border); padding-left:12px; margin-bottom:36px; line-height:1.7; }
+  .context-note strong { color:var(--muted2); font-weight:500; }
+
+  .directors-row { display:flex; gap:6px; margin-bottom:36px; flex-wrap:wrap; }
+  .dbadge { display:flex; align-items:center; gap:7px; padding:7px 12px; border:1px solid var(--border); border-radius:2px; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; background:var(--surface); }
+  .dbadge .dot { width:5px; height:5px; border-radius:50%; }
+  .dbadge .dname { font-weight:500; }
+  .dbadge .drole { color:var(--muted); }
+
+  .stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:2px; margin-bottom:36px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); padding:16px 18px; border-radius:2px; }
+  .stat-num { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; line-height:1; margin-bottom:4px; color:var(--accent); }
+  .stat-num.red { color:var(--danger); }
+  .stat-label { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); }
+
+  /* Tabs */
+  .tabs { display:flex; gap:2px; margin-bottom:2px; }
+  .tab { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; padding:9px 16px; border:1px solid var(--border); border-bottom:none; border-radius:2px 2px 0 0; cursor:pointer; color:var(--muted2); background:var(--surface); transition:all 0.15s; }
+  .tab.active { color:var(--accent); border-color:var(--accent); background:var(--bg); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .section { margin-bottom:36px; }
+  .section-label { font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:12px; }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .add-form { background:var(--surface); border:1px solid var(--border); padding:20px; border-radius:2px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .add-form .full { grid-column:1/-1; }
+  .ff { display:flex; flex-direction:column; gap:6px; }
+  .ff label { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted2); }
+  .ff input,.ff select,.ff textarea { background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:13px; padding:9px 11px; border-radius:2px; outline:none; transition:border-color 0.2s; -webkit-appearance:none; }
+  .ff input:focus,.ff select:focus,.ff textarea:focus { border-color:var(--accent); }
+  .ff textarea { resize:vertical; min-height:56px; }
+  .ff select option { background:#111; }
+
+  .btn-row { display:flex; gap:8px; align-items:center; grid-column:1/-1; margin-top:4px; flex-wrap:wrap; }
+  .btn { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; padding:9px 18px; border:none; border-radius:2px; cursor:pointer; transition:all 0.15s; font-weight:500; }
+  .btn-primary { background:var(--accent); color:#000; }
+  .btn-primary:hover { background:#d4eb30; }
+  .btn-secondary { background:transparent; border:1px solid var(--border); color:var(--muted2); }
+  .btn-secondary:hover { border-color:var(--muted2); color:var(--text); }
+  .btn-slack { background:transparent; border:1px solid #3a1a3a; color:#e01e5a; }
+  .btn-slack:hover { background:rgba(74,21,75,0.25); }
+  .btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+  /* Filter row */
+  .filter-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  .filter-btn { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; padding:5px 10px; border:1px solid var(--border); border-radius:2px; cursor:pointer; color:var(--muted2); background:transparent; transition:all 0.15s; }
+  .filter-btn.active { color:var(--accent); border-color:var(--accent); }
+  .filter-btn:hover { color:var(--text); border-color:#444; }
+
+  .task-list { display:flex; flex-direction:column; gap:2px; }
+  .task-item { background:var(--surface); border:1px solid var(--border); border-radius:2px; padding:14px 18px; display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:start; transition:border-color 0.2s; animation:slideIn 0.2s ease; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .task-item:hover { border-color:#2a2a2a; }
+  .task-item.done { opacity:0.3; }
+  .task-item.done .task-title { text-decoration:line-through; }
+
+  .task-check { width:16px; height:16px; border:1px solid var(--border); border-radius:2px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; margin-top:2px; }
+  .task-check:hover { border-color:var(--accent); }
+  .task-check.checked { background:var(--accent); border-color:var(--accent); color:#000; font-size:10px; font-weight:700; }
+
+  .task-body { min-width:0; }
+  .task-title { font-size:13px; font-weight:500; color:var(--text); margin-bottom:5px; line-height:1.4; }
+  .task-meta { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
+  .ttag { font-size:9px; letter-spacing:0.12em; text-transform:uppercase; padding:2px 7px; border-radius:1px; font-weight:500; }
+  .tpriority.high { background:rgba(255,68,68,0.1); color:var(--danger); border:1px solid rgba(255,68,68,0.2); }
+  .tpriority.medium { background:rgba(255,107,53,0.1); color:var(--accent2); border:1px solid rgba(255,107,53,0.2); }
+  .tpriority.low { background:rgba(85,85,85,0.15); color:var(--muted2); border:1px solid var(--border); }
+  .tdeadline { font-size:10px; color:var(--muted2); }
+  .tdeadline.urgent { color:var(--danger); }
+  .tdeadline.soon { color:var(--accent2); }
+  .tnotes { font-size:11px; color:var(--muted); margin-top:5px; line-height:1.6; border-left:2px solid var(--border); padding-left:10px; }
+  .task-del { background:transparent; border:1px solid transparent; color:var(--muted); cursor:pointer; padding:4px 8px; border-radius:2px; font-size:11px; transition:all 0.15s; font-family:'DM Mono',monospace; margin-top:1px; }
+  .task-del:hover { border-color:var(--danger); color:var(--danger); }
+
+  .empty { text-align:center; padding:40px; color:var(--muted); font-size:12px; letter-spacing:0.1em; border:1px dashed var(--border); border-radius:2px; }
+
+  .summary-box { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); padding:20px; border-radius:2px; font-size:12px; line-height:1.8; white-space:pre-wrap; display:none; margin-top:12px; }
+  .summary-box.show { display:block; }
+  .slack-btns { display:flex; gap:8px; flex-wrap:wrap; }
+
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--surface2); border:1px solid var(--border); border-left:3px solid var(--accent); padding:14px 18px; border-radius:2px; font-size:12px; z-index:999; display:none; max-width:320px; animation:toastIn 0.2s ease; }
+  @keyframes toastIn { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+  .toast.show { display:block; }
+  .toast.error { border-left-color:var(--danger); }
+  .toast-title { font-weight:500; margin-bottom:3px; color:var(--text); }
+  .toast-msg { color:var(--muted2); font-size:11px; }
+  .spinner { display:inline-block; width:11px; height:11px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; vertical-align:middle; margin-right:5px; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  @media(max-width:600px) { .add-form{grid-template-columns:1fr} .stats-bar{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo"><span>NETWORK</span> / DIRECTOR OPS</div>
+    <div class="status-pill"><div class="status-dot"></div>Slack Connected</div>
+  </header>
+
+  <div class="page-title">Progress <span class="hl">Tracker</span></div>
+  <div class="page-sub">Director Accountability — Network Media</div>
+  <div class="context-note">
+    <strong>How this works:</strong> Track tasks and milestones privately. Push to <strong>#directors</strong> when you want the team to see and act — the right person gets tagged automatically.
+  </div>
+
+  <div class="directors-row" id="directorRow"></div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-num" id="sTotal">0</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num" id="sOpen">0</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num" id="sDone">0</div><div class="stat-label">Done</div></div>
+    <div class="stat-card"><div class="stat-num red" id="sUrgent">0</div><div class="stat-label">Urgent</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('tasks')">All Tasks</div>
+    <div class="tab" onclick="switchTab('add')">+ Add Task</div>
+    <div class="tab" onclick="switchTab('push')">Push to Slack</div>
+  </div>
+
+  <!-- Tasks tab -->
+  <div class="tab-panel active" id="tab-tasks">
+    <div class="section" style="margin-top:16px">
+      <div class="filter-row" id="filterRow">
+        <span style="font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase">Filter:</span>
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      </div>
+      <div class="task-list" id="taskList"></div>
+    </div>
+  </div>
+
+  <!-- Add tab -->
+  <div class="tab-panel" id="tab-add">
+    <div class="section" style="margin-top:16px">
+      <div class="section-label">New Task / Milestone</div>
+      <div class="add-form">
+        <div class="ff full">
+          <label>Title</label>
+          <input type="text" id="fTitle" placeholder="e.g. Finalise LC incentive structure">
+        </div>
+        <div class="ff">
+          <label>Assign To</label>
+          <select id="fOwner"></select>
+        </div>
+        <div class="ff">
+          <label>Priority</label>
+          <select id="fPriority">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="ff">
+          <label>Deadline</label>
+          <input type="date" id="fDeadline">
+        </div>
+        <div class="ff">
+          <label>Category</label>
+          <select id="fCategory">
+            <option value="ops">Operations</option>
+            <option value="product">Product / Tech</option>
+            <option value="content">Content</option>
+            <option value="sales">Sales / LC</option>
+            <option value="finance">Finance</option>
+            <option value="strategy">Strategy</option>
+            <option value="admin">Admin</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="ff full">
+          <label>Notes (optional)</label>
+          <textarea id="fNotes" placeholder="Context, blockers, sub-tasks..."></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addTask()">+ Add Task</button>
+          <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Push tab -->
+  <div class="tab-panel" id="tab-push">
+    <div class="section" style="margin-top:16px">
+      <div class="section-label">Push Update to #directors</div>
+      <div class="slack-btns">
+        <button class="btn btn-secondary" onclick="generateSummary()">Preview Update</button>
+        <button class="btn btn-slack" id="btnDeadlines" onclick="postDeadlines()">⚡ Post Deadline Alerts</button>
+        <button class="btn btn-slack" id="btnWeekly" onclick="postWeekly()">📋 Post Weekly Digest</button>
+      </div>
+      <div class="summary-box" id="summaryBox"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-title" id="toastTitle"></div>
+  <div class="toast-msg" id="toastMsg"></div>
+</div>
+
+<script>
+// ── ROSTER ──────────────────────────────────────────────────────────────
+const USERS = {
+  jacob:   { id:'U08JGDMDH6W', name:'Jacob',    role:'CEO / MD',              color:'#e8ff47' },
+  tristan: { id:'U08JVGARCFQ', name:'Tristan',  role:'Head of Ops',           color:'#ff6b35' },
+  troy:    { id:'U08LG229YSF', name:'Troy',      role:'Head of Content',       color:'#7eb8ff' },
+  asad:    { id:'U08LG1R595Z', name:'Asad',      role:'Finance',               color:'#b8ff9f' },
+  shawn:   { id:'U08K5V80MA8', name:'Shawn',     role:'Sales',                 color:'#ff9fd8' },
+  tzeqing: { id:'U0ALXEC10TS', name:'Tze Qing',  role:'Executive Assistant',   color:'#c4b5fd' },
+  raemer:  { id:'U08LG22LSHZ', name:'Raemer',    role:'Web Dev',               color:'#ffd580' }
+};
+
+const CHANNEL_ID = 'C08JVHZUQMB';
+
+// ── SEED TASKS ───────────────────────────────────────────────────────────
+const SEED_TASKS = [
+  // Jacob
+  { title:'IMDA Grant', owner:'jacob', priority:'high', deadline:'', category:'admin', notes:'', done:false },
+  { title:'Content Videos for Network', owner:'jacob', priority:'high', deadline:'', category:'content', notes:'Side project: build a library of past resources so sales can reference Network-produced work instead of third-party videos. Builds credibility when prospects ask "have you done this before?"', done:false },
+  { title:'Platform Development — coordinate with Raemer', owner:'jacob', priority:'high', deadline:'', category:'product', notes:'', done:false },
+  { title:'Branding Proposal Generator (Claude AI agent)', owner:'jacob', priority:'medium', deadline:'', category:'product', notes:'Agent workflow to generate branding proposals with references based on client goal. Feed it backend knowledge, Notion links, skills. Input: meeting transcription or salesperson prompt. Output: customised proposal. Goal: reduce time and effort from the sales side.', done:false },
+
+  // Tristan
+  { title:'Client Portal — First batch (Lead Programme)', owner:'tristan', priority:'high', deadline:'2025-03-27', category:'product', notes:'', done:false },
+  { title:'Client Portal — Full launch (Branding + Marketing)', owner:'tristan', priority:'high', deadline:'2025-03-31', category:'product', notes:'', done:false },
+  { title:'Marketing Agent', owner:'tristan', priority:'high', deadline:'2025-04-04', category:'product', notes:'', done:false },
+  { title:'Delivery Team App', owner:'tristan', priority:'high', deadline:'2025-04-11', category:'product', notes:'', done:false },
+  { title:'Finance Team App', owner:'tristan', priority:'medium', deadline:'2025-04-18', category:'finance', notes:'Still looking for ways to connect the finance API.', done:false },
+  { title:'CRM + 3D Tool for IDs (sellable software)', owner:'tristan', priority:'medium', deadline:'', category:'strategy', notes:'Post-internal-apps focus. Products we can start selling to interior designers.', done:false },
+
+  // Raemer
+  { title:'Handshake x Network Landing Page', owner:'raemer', priority:'high', deadline:'2025-03-25', category:'product', notes:'', done:false },
+  { title:'New HO Landing Page Draft', owner:'raemer', priority:'high', deadline:'2025-03-27', category:'product', notes:'', done:false },
+  { title:'Floor Plan 3D Fixes', owner:'raemer', priority:'high', deadline:'2025-03-28', category:'product', notes:'', done:false },
+  { title:'Designers Profile Fixes', owner:'raemer', priority:'high', deadline:'2025-03-31', category:'product', notes:'', done:false },
+  { title:'Explore Page — connect to Designers Profile', owner:'raemer', priority:'high', deadline:'2025-04-02', category:'product', notes:'', done:false },
+  { title:'Individual Project Page fixes — connect to Designers Profile', owner:'raemer', priority:'high', deadline:'2025-04-04', category:'product', notes:'', done:false },
+  { title:'Find Firms Page', owner:'raemer', priority:'high', deadline:'2025-04-06', category:'product', notes:'', done:false },
+  { title:'Testing site + adding IDs', owner:'raemer', priority:'high', deadline:'2025-04-10', category:'product', notes:'7–10 April window.', done:false },
+
+  // Troy
+  { title:'Client Onboarding Flow', owner:'troy', priority:'high', deadline:'', category:'ops', notes:'Map the flow from signed contract to first content live. Who briefs who, what gets collected from the client, where handoffs happen between Noel and Hans, and where it currently breaks.', done:false },
+  { title:'Standardised Fulfilment System', owner:'troy', priority:'high', deadline:'', category:'ops', notes:'Build a system where any account can be picked up and delivered to the same standard regardless of who is on it. Brief templates, approval flows, content checklists.', done:false },
+  { title:'Reporting — Client-facing + Internal', owner:'troy', priority:'medium', deadline:'', category:'ops', notes:'Clients see progress on their account, leadership sees status across all active engagements. Built on Claude and Cowork so it runs without someone manually compiling it each time.', done:false }
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let tasks = JSON.parse(localStorage.getItem('nm_tasks_v3') || 'null');
+if (!tasks) { tasks = SEED_TASKS.map((t, i) => Object.assign({ id: Date.now().toString() + i, createdAt: new Date().toISOString() }, t)); save(false); }
+
+let activeFilter = 'all';
+let posting = false;
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+function initUI() {
+  // Badges
+  const row = document.getElementById('directorRow');
+  row.innerHTML = Object.entries(USERS).map(function(e) {
+    var k = e[0]; var u = e[1];
+    return '<div class="dbadge"><div class="dot" style="background:' + u.color + '"></div><span class="dname" style="color:' + u.color + '">' + u.name + '</span><span class="drole">' + u.role + '</span></div>';
+  }).join('');
+
+  // Owner select
+  var sel = document.getElementById('fOwner');
+  sel.innerHTML = Object.entries(USERS).map(function(e) {
+    return '<option value="' + e[0] + '">' + e[1].name + ' — ' + e[1].role + '</option>';
+  }).join('');
+
+  document.getElementById('fDeadline').value = new Date().toISOString().split('T')[0];
+
+  // Filter buttons
+  buildFilters();
+  render();
+  updateStats();
+}
+
+function buildFilters() {
+  var row = document.getElementById('filterRow');
+  var btns = '<span style="font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase">Filter:</span>';
+  btns += '<button class="filter-btn ' + (activeFilter === 'all' ? 'active' : '') + '" onclick="setFilter(\'all\',this)">All</button>';
+  Object.entries(USERS).forEach(function(e) {
+    btns += '<button class="filter-btn ' + (activeFilter === e[0] ? 'active' : '') + '" onclick="setFilter(\'' + e[0] + '\',this)" style="color:' + (activeFilter === e[0] ? e[1].color : '') + ';border-color:' + (activeFilter === e[0] ? e[1].color : '') + '">' + e[1].name + '</button>';
+  });
+  row.innerHTML = btns;
+}
+
+function setFilter(owner, el) {
+  activeFilter = owner;
+  buildFilters();
+  render();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t, i) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  var panels = ['tasks','add','push'];
+  var idx = panels.indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────
+function save(rerender) {
+  localStorage.setItem('nm_tasks_v3', JSON.stringify(tasks));
+  if (rerender !== false) { render(); updateStats(); }
+}
+
+function daysUntil(d) {
+  if (!d) return null;
+  var now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((new Date(d) - now) / 86400000);
+}
+
+function deadlineLabel(d) {
+  var n = daysUntil(d);
+  if (n === null) return '';
+  if (n < 0) return Math.abs(n) + 'd overdue';
+  if (n === 0) return 'Due today';
+  if (n === 1) return 'Due tomorrow';
+  return n + 'd left';
+}
+
+function deadlineClass(d) {
+  var n = daysUntil(d);
+  if (n === null) return '';
+  if (n <= 1) return 'urgent';
+  if (n <= 3) return 'soon';
+  return '';
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-SG', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function showToast(title, msg, type) {
+  var t = document.getElementById('toast');
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastMsg').textContent = msg || '';
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(window._tt);
+  window._tt = setTimeout(function() { t.className = 'toast'; }, 3500);
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function render() {
+  var list = document.getElementById('taskList');
+  var filtered = activeFilter === 'all' ? tasks : tasks.filter(function(t) { return t.owner === activeFilter; });
+  var active = filtered.filter(function(t) { return !t.done; });
+  var done = filtered.filter(function(t) { return t.done; });
+  var all = active.concat(done);
+
+  if (!all.length) {
+    list.innerHTML = '<div class="empty">No tasks' + (activeFilter !== 'all' ? ' for ' + (USERS[activeFilter] ? USERS[activeFilter].name : activeFilter) : '') + '.</div>';
+    return;
+  }
+
+  list.innerHTML = all.map(function(task) {
+    var u = USERS[task.owner] || { name: task.owner, color: '#888', id: '' };
+    var dl = deadlineLabel(task.deadline);
+    var dc = deadlineClass(task.deadline);
+    return '<div class="task-item ' + (task.done ? 'done' : '') + '">' +
+      '<div class="task-check ' + (task.done ? 'checked' : '') + '" onclick="toggle(\'' + task.id + '\')">' + (task.done ? '✓' : '') + '</div>' +
+      '<div class="task-body">' +
+        '<div class="task-title">' + task.title + '</div>' +
+        '<div class="task-meta">' +
+          '<span class="ttag" style="background:' + u.color + '18;color:' + u.color + ';border:1px solid ' + u.color + '28">' + u.name + '</span>' +
+          '<span class="ttag tpriority ' + task.priority + '">' + task.priority + '</span>' +
+          '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">' + task.category + '</span>' +
+          (task.deadline ? '<span class="tdeadline ' + dc + '">' + fmtDate(task.deadline) + ' · ' + dl + '</span>' : '') +
+        '</div>' +
+        (task.notes ? '<div class="tnotes">' + task.notes + '</div>' : '') +
+      '</div>' +
+      '<button class="task-del" onclick="del(\'' + task.id + '\')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function updateStats() {
+  var total = tasks.length;
+  var done = tasks.filter(function(t) { return t.done; }).length;
+  var open = total - done;
+  var urgent = tasks.filter(function(t) { return !t.done && t.deadline && daysUntil(t.deadline) <= 2; }).length;
+  document.getElementById('sTotal').textContent = total;
+  document.getElementById('sOpen').textContent = open;
+  document.getElementById('sDone').textContent = done;
+  document.getElementById('sUrgent').textContent = urgent;
+}
+
+// ── TASK ACTIONS ─────────────────────────────────────────────────────────
+function addTask() {
+  var title = document.getElementById('fTitle').value.trim();
+  if (!title) { showToast('Missing title', 'Type a task name.', 'error'); return; }
+  var owner = document.getElementById('fOwner').value;
+  tasks.unshift({
+    id: Date.now().toString(),
+    title: title,
+    owner: owner,
+    priority: document.getElementById('fPriority').value,
+    deadline: document.getElementById('fDeadline').value,
+    category: document.getElementById('fCategory').value,
+    notes: document.getElementById('fNotes').value.trim(),
+    done: false,
+    createdAt: new Date().toISOString()
+  });
+  save();
+  clearForm();
+  showToast('Task added', 'Assigned to ' + (USERS[owner] ? USERS[owner].name : owner) + '.');
+  switchTab('tasks');
+}
+
+function clearForm() {
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fNotes').value = '';
+  document.getElementById('fDeadline').value = new Date().toISOString().split('T')[0];
+}
+
+function toggle(id) {
+  var t = tasks.find(function(t) { return t.id === id; });
+  if (t) { t.done = !t.done; save(); }
+}
+
+function del(id) {
+  if (!confirm('Delete this task?')) return;
+  tasks = tasks.filter(function(t) { return t.id !== id; });
+  save();
+  showToast('Removed', 'Task deleted.');
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────────────
+function generateSummary() {
+  if (!tasks.length) { showToast('Nothing to summarise', 'Add tasks first.', 'error'); return ''; }
+
+  var open = tasks.filter(function(t) { return !t.done; });
+  var done = tasks.filter(function(t) { return t.done; });
+  var urgent = open.filter(function(t) { return t.deadline && daysUntil(t.deadline) <= 3; });
+  var today = new Date().toLocaleDateString('en-SG', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  var s = '*NETWORK MEDIA — DIRECTOR UPDATE*\n' + today + '\n\n';
+
+  if (urgent.length) {
+    s += '*URGENT — DUE WITHIN 3 DAYS*\n';
+    urgent.forEach(function(t) {
+      var u = USERS[t.owner] || { id:'', name: t.owner };
+      s += '- *' + t.title + '* — <@' + u.id + '> · ' + deadlineLabel(t.deadline) + '\n';
+      if (t.notes) s += '  _' + t.notes.substring(0, 120) + (t.notes.length > 120 ? '...' : '') + '_\n';
+    });
+    s += '\n';
+  }
+
+  // Group open by owner
+  var byOwner = {};
+  open.forEach(function(t) { if (!byOwner[t.owner]) byOwner[t.owner] = []; byOwner[t.owner].push(t); });
+
+  s += '*OPEN BY DIRECTOR (' + open.length + ' tasks)*\n';
+  Object.entries(byOwner).forEach(function(e) {
+    var owner = e[0]; var items = e[1];
+    var u = USERS[owner] || { id:'', name: owner };
+    s += '\n<@' + u.id + '> — ' + u.name + ' (' + u.role + ')\n';
+    items.forEach(function(t) {
+      s += '  - [' + t.priority.toUpperCase() + '] ' + t.title + (t.deadline ? ' · ' + fmtDate(t.deadline) : '') + '\n';
+    });
+  });
+
+  if (done.length) {
+    s += '\n*COMPLETED (' + done.length + ')*\n';
+    done.forEach(function(t) {
+      var u = USERS[t.owner] || { id:'', name: t.owner };
+      s += '✓ ' + t.title + ' — <@' + u.id + '>\n';
+    });
+  }
+
+  s += '\n_Network Director Tracker_';
+
+  var box = document.getElementById('summaryBox');
+  box.textContent = s;
+  box.classList.add('show');
+  return s;
+}
+
+// ── SLACK ─────────────────────────────────────────────────────────────────
+async function slackPost(msg, btnId, label) {
+  if (posting) return;
+  posting = true;
+  var btn = document.getElementById(btnId);
+  btn.innerHTML = '<span class="spinner"></span>Posting...';
+  btn.disabled = true;
+
+  try {
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        mcp_servers: [{ type:'url', url:'https://mcp.slack.com/mcp', name:'slack' }],
+        messages: [{ role:'user', content:'Post this message exactly as written to Slack channel ID ' + CHANNEL_ID + ' (#directors). Do not modify any text or formatting:\n\n' + msg }]
+      })
+    });
+    var data = await res.json();
+    var hasResult = data.content && data.content.some(function(b) { return b.type === 'mcp_tool_result'; });
+    var text = (data.content || []).map(function(b) { return b.text || ''; }).join('').toLowerCase();
+    if (hasResult || text.includes('posted') || text.includes('sent') || text.includes('message')) {
+      showToast('Posted to #directors', 'Team has been notified.');
+    } else {
+      throw new Error('No confirmation received');
+    }
+  } catch(e) {
+    showToast('Failed to post', e.message, 'error');
+  }
+
+  posting = false;
+  btn.innerHTML = label;
+  btn.disabled = false;
+}
+
+function postDeadlines() {
+  var urgent = tasks.filter(function(t) { return !t.done && t.deadline && daysUntil(t.deadline) <= 3; });
+  if (!urgent.length) { showToast('Nothing urgent', 'No tasks due within 3 days.'); return; }
+  var msg = '*NETWORK — DEADLINE ALERT*\nTasks due within 3 days:\n\n';
+  urgent.forEach(function(t) {
+    var u = USERS[t.owner] || { id:'', name: t.owner };
+    msg += '- *' + t.title + '*\n  <@' + u.id + '> · ' + deadlineLabel(t.deadline) + ' · ' + fmtDate(t.deadline) + '\n';
+    if (t.notes) msg += '  _' + t.notes.substring(0,100) + (t.notes.length > 100 ? '...' : '') + '_\n';
+    msg += '\n';
+  });
+  msg += '_Network Director Tracker_';
+  slackPost(msg, 'btnDeadlines', '⚡ Post Deadline Alerts');
+}
+
+function postWeekly() {
+  switchTab('push');
+  var msg = generateSummary();
+  if (!msg) return;
+  slackPost(msg, 'btnWeekly', '📋 Post Weekly Digest');
+}
+
+initUI();
+</script>
+</body>
+</html>
